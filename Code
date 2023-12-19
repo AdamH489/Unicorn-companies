@@ -1,0 +1,108 @@
+import pandas as pd
+
+# Read the CSV file
+file_path = 'C:/Users/User/OneDrive/Email attachments/Documents/Personal work/Employment/Project data/Unicorn Company data.csv'
+data = pd.read_csv(file_path)
+
+# Which countries have the most unicorns?
+unicorn_count_per_country = (
+    data.groupby("Country")
+    .size()
+    .to_frame(name="Unicorn Count")
+    .reset_index()
+    .sort_values(by="Unicorn Count", ascending=False)
+)
+print("Number of unicorns per country (Top 20):")
+print(unicorn_count_per_country.head(20))
+
+# Which industries have the most unicorns?
+unicorn_count_per_industry = (
+    data.groupby("Industry")
+    .size()
+    .to_frame(name="Unicorn Count")
+    .reset_index()
+    .sort_values(by="Unicorn Count", ascending=False)
+)
+print("\nIndustries with the most unicorns:")
+print(unicorn_count_per_industry.to_string(index=False))
+
+# What is the average valuation of a unicorn company in each industry?
+data['Date Joined'] = pd.to_datetime(data['Date Joined'], errors='coerce')
+
+data['Year Joined'] = data['Date Joined'].dt.year
+
+unicorn_counts = data.groupby(['Year Joined', 'Industry']).size().reset_index(name='Count')
+
+pivot_table = unicorn_counts.pivot_table(index='Year Joined', columns='Industry', values='Count', aggfunc='sum').fillna(0)
+
+pivot_table = pivot_table.cumsum()
+
+pd.set_option('display.float_format', lambda x: '%.0f' % x)  # Set precision to 0 decimal places
+pd.set_option('display.expand_frame_repr', False)  # Show full content, no truncation
+
+print(pivot_table)
+
+# Who are the main investors into a unicorn company?
+# Convert 'Valuation ($B)' column to numeric if not already done
+data['Valuation ($B)'] = pd.to_numeric(data['Valuation ($B)'], errors='coerce')
+
+# Split the 'Select Investors' column by commas into separate rows
+data_expanded = data.assign(Investor=data['Select Investors'].str.split(', ')).explode('Investor')
+
+# Count investments per investor
+investor_counts = data_expanded['Investor'].value_counts()
+
+# Filter investors with more than 20 investments
+investors_over_20 = investor_counts[investor_counts > 20].index
+
+# Filter the dataset for investors with more than 20 investments
+filtered_data = data_expanded[data_expanded['Investor'].isin(investors_over_20)]
+
+# Group by investor and calculate the average valuation per investor and count of investments
+grouped_data = filtered_data.groupby('Investor')['Valuation ($B)'].agg(['mean', 'count']).sort_values(by='mean', ascending=False)
+
+# Rename columns for clarity
+grouped_data.columns = ['Average Valuation ($B)', 'Number of Investments']
+
+# Set display options to show all rows without truncation
+pd.set_option('display.max_rows', None)  # Show all rows without truncation
+pd.set_option('display.max_columns', None)  # Show all columns without truncation
+pd.set_option('display.width', None)  # Disable column width restriction
+
+# Display the resulting dataframe
+print(grouped_data)
+
+
+# What is the average valuation of the unicorn for each active investor?
+data['Valuation ($B)'] = pd.to_numeric(data['Valuation ($B)'], errors='coerce')
+data_expanded = data.assign(Investor=data['Select Investors'].str.split(', ')).explode('Investor')
+investor_counts = data_expanded['Investor'].value_counts()
+investors_over_20 = investor_counts[investor_counts > 20].index
+filtered_data = data_expanded[data_expanded['Investor'].isin(investors_over_20)]
+grouped_data = filtered_data.groupby('Investor')['Valuation ($B)'].agg(['mean', 'count']).sort_values(by='mean', ascending=False)
+grouped_data.columns = ['Average Valuation ($B)', 'Number of Investments']
+print("\nInvestors with more than 20 investments:")
+print(grouped_data)
+
+# Number of unicorns per year (cumulative)
+data['Date Joined'] = pd.to_datetime(data['Date Joined'], errors='coerce')
+data['Year Joined'] = data['Date Joined'].dt.year
+unicorn_count_per_year = data.groupby('Year Joined').size().cumsum()
+print("\nNumber of unicorns per year (Cumulative):")
+print(unicorn_count_per_year)
+
+# Number of unicorns per year broken down by industry (No truncation)
+unicorn_counts = data.groupby(['Year Joined', 'Industry']).size().reset_index(name='Count')
+pivot_table = unicorn_counts.pivot_table(index='Year Joined', columns='Industry', values='Count', aggfunc='sum').fillna(0)
+pd.set_option('display.max_columns', None)  # Show all columns
+print("\nNumber of unicorns per year broken down by industry:")
+print(pivot_table)
+
+# How long has each company on average been a unicorn in each industry?
+current_year = 2023
+data['Years_on_List'] = current_year - data['Year Joined']
+data_over_1b = data[data['Valuation ($B)'] > 1]
+avg_years_per_industry = data_over_1b.groupby('Industry')['Years_on_List'].mean()
+avg_years_per_industry_sorted = avg_years_per_industry.sort_values(ascending=False)
+print("\nAverage years on the unicorn list per industry (sorted):")
+print(avg_years_per_industry_sorted)
